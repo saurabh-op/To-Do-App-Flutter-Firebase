@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gap/gap.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todoapp/UI%20components/my_button.dart';
 import 'package:todoapp/UI%20components/my_text_field.dart';
 import 'package:todoapp/pages/home.dart';
@@ -19,18 +21,123 @@ class SignUpState extends State<SignUp> {
   TextEditingController ConfirmPasswordController = TextEditingController();
   TextEditingController EmailController = TextEditingController();
 
-  bool showPass = false;
-  bool showConfirm = false;
-  showConfPass() {
-    setState(() {
-      showConfirm = !showConfirm;
+  Future<void> crateUserNodeinDB() async {
+    print('creating DB ....');
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    String userId = await pref.getString('userID')!;
+    print(' the user id : $userId');
+    DatabaseReference _databaseReference =
+        FirebaseDatabase.instance.ref('users/$userId');
+    Map<String, dynamic> dataToWrite = {
+      'password': passwordController.text,
+      "tasks": {"taskid": "shjsd"}
+    };
+    print('$dataToWrite');
+    _databaseReference.set(dataToWrite).then((_) {
+      Fluttertoast.showToast(
+        msg: "DB initialised success!",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => HomePage()));
+    }).catchError((e) {
+      print('Error in creating db node : $e');
+
+      Fluttertoast.showToast(
+        msg: "Error: DB not initialised ",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.red,
+        fontSize: 14.0,
+      );
+      print(e);
     });
   }
 
-  showPassword() {
-    setState(() {
-      showPass = !showPass;
-    });
+  Future<void> saveCredentialsLocally(String userIdObtainedFromFirebase) async {
+    print('saving credentials locaally ');
+    print('the new user id : $userIdObtainedFromFirebase');
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await pref.setString('userID', userIdObtainedFromFirebase);
+    await pref.setString('pass', passwordController.text);
+    crateUserNodeinDB();
+  }
+
+  Future<void> SignUp() async {
+    if (EmailController.text.isEmpty)
+      Fluttertoast.showToast(
+        msg: "Enter the email",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+    else if (passwordController.text.isEmpty)
+      Fluttertoast.showToast(
+        msg: "Enter the password",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+    else if (ConfirmPasswordController.text.isEmpty)
+      Fluttertoast.showToast(
+        msg: "Enter the confirmation password",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+    else if (passwordController.text != ConfirmPasswordController.text)
+      Fluttertoast.showToast(
+        msg: "Password not match",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+    else {
+      try {
+        UserCredential userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+                email: EmailController.text, password: passwordController.text);
+
+        if (userCredential.user != null) {
+          saveCredentialsLocally(userCredential.user!.uid!);
+        }
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'weak-password') {
+          Fluttertoast.showToast(
+            msg: "Weak password !",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.black,
+            textColor: Colors.white,
+            fontSize: 14.0,
+          );
+        } else if (e.code == 'email-already-in-use') {
+          Fluttertoast.showToast(
+            msg: "Existing account found with this email",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.black,
+            textColor: Colors.white,
+            fontSize: 14.0,
+          );
+        }
+      } catch (e) {
+        print(e);
+      }
+    }
   }
 
   @override
@@ -64,15 +171,6 @@ class SignUpState extends State<SignUp> {
                     color: Colors.black,
                   ),
                 ),
-                // onChanged: (value) {
-                //   setState(() {});
-                // },
-                // validator: (value) {
-                //   if (value!.isEmpty || value.length < 2) {
-                //     return 'Please enter your first name';
-                //   }
-                //   return null;
-                // },
               ),
               const SizedBox(height: 20),
               TextFormField(
@@ -87,15 +185,6 @@ class SignUpState extends State<SignUp> {
                     color: Colors.black,
                   ),
                 ),
-                // onChanged: (value) {
-                //   setState(() {});
-                // },
-                // validator: (value) {
-                //   if (value!.isEmpty || value.length < 2) {
-                //     return 'Please enter your first name';
-                //   }
-                //   return null;
-                // },
               ),
               const SizedBox(height: 30),
               TextFormField(
@@ -110,105 +199,12 @@ class SignUpState extends State<SignUp> {
                     color: Colors.black,
                   ),
                 ),
-                // onChanged: (value) {
-                //   setState(() {});
-                // },
-                // validator: (value) {
-                //   if (value!.isEmpty || value.length < 2) {
-                //     return 'Please enter your first name';
-                //   }
-                //   return null;
-                // },
               ),
               Gap(10),
               MyButton(
                 customColor: const Color.fromARGB(255, 10, 185, 121),
                 text: "Sign up",
-                onTap: () async {
-                  if (EmailController.text.isEmpty)
-                    Fluttertoast.showToast(
-                      msg: "Enter the email",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      backgroundColor: Colors.black,
-                      textColor: Colors.white,
-                      fontSize: 14.0,
-                    );
-                  else if (passwordController.text.isEmpty)
-                    Fluttertoast.showToast(
-                      msg: "Enter the password",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      backgroundColor: Colors.black,
-                      textColor: Colors.white,
-                      fontSize: 14.0,
-                    );
-                  else if (ConfirmPasswordController.text.isEmpty)
-                    Fluttertoast.showToast(
-                      msg: "Enter the confirmation password",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      backgroundColor: Colors.black,
-                      textColor: Colors.white,
-                      fontSize: 14.0,
-                    );
-                  else if (passwordController.text !=
-                      ConfirmPasswordController.text)
-                    Fluttertoast.showToast(
-                      msg: "Password not match",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      backgroundColor: Colors.black,
-                      textColor: Colors.white,
-                      fontSize: 14.0,
-                    );
-                  else {
-                    try {
-                      UserCredential userCredential = await FirebaseAuth
-                          .instance
-                          .createUserWithEmailAndPassword(
-                              email: EmailController.text,
-                              password: passwordController.text);
-
-                      if (userCredential != null) {
-                        Fluttertoast.showToast(
-                          msg: "Success !",
-                          toastLength: Toast.LENGTH_SHORT,
-                          gravity: ToastGravity.BOTTOM,
-                          backgroundColor: Colors.black,
-                          textColor: Colors.white,
-                          fontSize: 14.0,
-                        );
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => HomePage()));
-                      }
-                    } on FirebaseAuthException catch (e) {
-                      if (e.code == 'weak-password') {
-                        Fluttertoast.showToast(
-                          msg: "Weak password !",
-                          toastLength: Toast.LENGTH_SHORT,
-                          gravity: ToastGravity.BOTTOM,
-                          backgroundColor: Colors.black,
-                          textColor: Colors.white,
-                          fontSize: 14.0,
-                        );
-                      } else if (e.code == 'email-already-in-use') {
-                        Fluttertoast.showToast(
-                          msg: "Existing account found with this email",
-                          toastLength: Toast.LENGTH_SHORT,
-                          gravity: ToastGravity.BOTTOM,
-                          backgroundColor: Colors.black,
-                          textColor: Colors.white,
-                          fontSize: 14.0,
-                        );
-                      }
-                    } catch (e) {
-                      print(e);
-                    }
-                  }
-                },
+                onTap: SignUp,
               ),
               const SizedBox(height: 20),
               const Text(
