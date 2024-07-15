@@ -29,6 +29,7 @@ class SignUpState extends State<SignUp> {
     DatabaseReference _databaseReference =
         FirebaseDatabase.instance.ref('users/$userId');
     Map<String, dynamic> dataToWrite = {
+      'email': EmailController.text,
       'password': passwordController.text,
       "tasks": {"taskid": "shjsd"}
     };

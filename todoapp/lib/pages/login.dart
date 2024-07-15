@@ -40,11 +40,24 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<void> saveCredentialsLocally() async {
+  Future<void> saveCredentialsLocally(String userIdObtainedFromFirebase) async {
+    print('saving credentials locaally ');
+    print('the new user id : $userIdObtainedFromFirebase');
     SharedPreferences pref = await SharedPreferences.getInstance();
-    await pref.setString('id', EmailController.text);
+    await pref.setString('userID', userIdObtainedFromFirebase);
     await pref.setString('pass', passwordController.text);
-    print('creds saved locally ');
+
+    Fluttertoast.showToast(
+      msg: "Login Successful !",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 14.0,
+    );
+
+    Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (context) => HomePage()));
   }
 
   Future<void> signIn() async {
@@ -56,19 +69,8 @@ class _LoginPageState extends State<LoginPage> {
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
               email: EmailController.text, password: passwordController.text);
-
-      if (userCredential != null) {
-        Fluttertoast.showToast(
-          msg: "Login Successful !",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.black,
-          textColor: Colors.white,
-          fontSize: 14.0,
-        );
-        saveCredentialsLocally();
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => HomePage()));
+      if (userCredential.user != null) {
+        saveCredentialsLocally(userCredential.user!.uid!);
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
