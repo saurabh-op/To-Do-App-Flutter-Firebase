@@ -57,6 +57,7 @@ class DefaultFirebaseOptions {
     appId: '1:757605364729:android:0de2d001a3fd30b7d70328',
     messagingSenderId: '757605364729',
     projectId: 'to-do-list-flutter-5d591',
+    databaseURL: 'https://to-do-list-flutter-5d591-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'to-do-list-flutter-5d591.appspot.com',
   );
 

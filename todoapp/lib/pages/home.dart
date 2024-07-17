@@ -557,35 +557,37 @@ class HomePageState extends State<HomePage> {
                                             ),
                                           ),
                                           const Gap(5),
-                                          IconButton(
-                                            onPressed: () async {
-                                              setState(() {
-                                                taskController.text =
-                                                    tasksList[index].taskDetail;
-                                              });
-                                              String? finalTask =
-                                                  await updateTask(
-                                                      tasksList[index].taskId,
-                                                      tasksList[index]
-                                                          .taskDetail);
-
-                                              if (finalTask != null) {
+                                          if (!item.isCompleted)
+                                            IconButton(
+                                              onPressed: () async {
                                                 setState(() {
-                                                  tasksList[index] = Task(
-                                                    taskId:
-                                                        tasksList[index].taskId,
-                                                    taskDetail: finalTask,
-                                                  );
+                                                  taskController.text =
+                                                      tasksList[index]
+                                                          .taskDetail;
                                                 });
-                                              }
-                                            },
-                                            icon: Icon(
-                                              Icons.mode_edit_outlined,
-                                              color: item.isSelected
-                                                  ? Colors.white
-                                                  : Colors.grey,
-                                            ),
-                                          )
+                                                String? finalTask =
+                                                    await updateTask(
+                                                        tasksList[index].taskId,
+                                                        tasksList[index]
+                                                            .taskDetail);
+
+                                                if (finalTask != null) {
+                                                  setState(() {
+                                                    tasksList[index] = Task(
+                                                      taskId: tasksList[index]
+                                                          .taskId,
+                                                      taskDetail: finalTask,
+                                                    );
+                                                  });
+                                                }
+                                              },
+                                              icon: Icon(
+                                                Icons.mode_edit_outlined,
+                                                color: item.isSelected
+                                                    ? Colors.white
+                                                    : Colors.grey,
+                                              ),
+                                            )
                                         ],
                                       ),
                                     ),

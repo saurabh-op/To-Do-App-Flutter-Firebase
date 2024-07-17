@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -9,6 +10,8 @@ import 'package:todoapp/UI%20components/my_text_field.dart';
 import 'package:todoapp/pages/home.dart';
 import 'package:todoapp/pages/login.dart';
 import 'package:todoapp/pages/signup.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -84,6 +87,78 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() {
       processingLogin = false;
+    });
+  }
+
+  Future<void> signInWithGoogle() async {
+    setState(() {
+      processingLogin = true;
+    });
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+
+      final GoogleSignInAuthentication? googleAuth =
+          await googleUser?.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth?.accessToken,
+        idToken: googleAuth?.idToken,
+      );
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        final creationTime = userCredential.user!.metadata.creationTime;
+        final now = DateTime.now();
+        final differenceInMinutes = now.difference(creationTime!).inSeconds;
+        if (differenceInMinutes < 20) {
+          crateUserNodeinDB(userCredential);
+        } else
+          saveCredentialsLocally(userCredential.user!.uid);
+      }
+    } catch (e) {
+      print(e);
+    }
+    setState(() {
+      processingLogin = true;
+    });
+  }
+
+  Future<void> crateUserNodeinDB(UserCredential userCredential) async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await pref.setString('userID', userCredential.user!.uid);
+
+    DatabaseReference _databaseReference =
+        FirebaseDatabase.instance.ref('users/${userCredential.user!.uid}');
+    Map<String, dynamic> dataToWrite = {
+      'email': userCredential.user!.email,
+      'password': "",
+      "tasks": {"taskid": "Sample"}
+    };
+
+    _databaseReference.set(dataToWrite).then((_) {
+      Fluttertoast.showToast(
+        msg: "Sign Up Success!",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => HomePage()));
+    }).catchError((e) {
+      print('Error in creating db node : $e');
+
+      Fluttertoast.showToast(
+        msg: "Error: Try signing up via other channels",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.red,
+        fontSize: 14.0,
+      );
+      print(e);
     });
   }
 
@@ -242,22 +317,27 @@ class _LoginPageState extends State<LoginPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade700),
+                    // Container(
+                    //   padding: const EdgeInsets.all(7),
+                    //   decoration: BoxDecoration(
+                    //     borderRadius: BorderRadius.circular(10),
+                    //     border: Border.all(color: Colors.grey.shade700),
+                    //   ),
+                    //   child: Image.asset('assets/facebook.png', width: 50),
+                    // ),
+                    // SizedBox(width: 20),
+                    InkWell(
+                      onTap: () {
+                        signInWithGoogle();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade700),
+                        ),
+                        child: Image.asset("assets/google.png", width: 50),
                       ),
-                      child: Image.asset('assets/facebook.png', width: 50),
-                    ),
-                    SizedBox(width: 20),
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade700),
-                      ),
-                      child: Image.asset("assets/google.png", width: 50),
                     ),
                   ],
                 ),
