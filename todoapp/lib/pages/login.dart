@@ -25,23 +25,10 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    checkingForLocalCreds = true;
-    checkForSavedDataLocally();
-  }
-
-  Future<void> checkForSavedDataLocally() async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    if (pref.getString('id') != null) {
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => HomePage()));
-    }
-    setState(() {
-      checkingForLocalCreds = false;
-    });
   }
 
   Future<void> saveCredentialsLocally(String userIdObtainedFromFirebase) async {
-    print('saving credentials locaally ');
+    print('loging up saving credentials locaally ');
     print('the new user id : $userIdObtainedFromFirebase');
     SharedPreferences pref = await SharedPreferences.getInstance();
     await pref.setString('userID', userIdObtainedFromFirebase);
@@ -261,7 +248,7 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.grey.shade700),
                       ),
-                      child: Image.asset("assets/facebook.png", width: 50),
+                      child: Image.asset('assets/facebook.png', width: 50),
                     ),
                     SizedBox(width: 20),
                     Container(

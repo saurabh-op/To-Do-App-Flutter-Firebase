@@ -21,6 +21,9 @@ dependencies:
   shared_preferences: ^2.2.3
   auto_size_text_field: ^2.2.3
   flutter_launcher_icons: ^0.13.1
+  google_fonts: ^6.2.1
+  lottie: ^3.1.2
+  audioplayers: ^6.0.0
 
 dev_dependencies:
   flutter_test:

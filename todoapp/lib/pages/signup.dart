@@ -61,7 +61,7 @@ class SignUpState extends State<SignUp> {
   }
 
   Future<void> saveCredentialsLocally(String userIdObtainedFromFirebase) async {
-    print('saving credentials locaally ');
+    print('signing up saving credentials locaally ');
     print('the new user id : $userIdObtainedFromFirebase');
     SharedPreferences pref = await SharedPreferences.getInstance();
     await pref.setString('userID', userIdObtainedFromFirebase);

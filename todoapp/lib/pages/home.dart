@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:gap/gap.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todoapp/models/taskListModel.dart';
 import 'package:todoapp/pages/login.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -24,14 +27,17 @@ class HomePageState extends State<HomePage> {
   String id = '';
 
   List<Task> tasksList = [];
+  List<int> deleteList = [];
+
+  bool activateSingleTapToSelect = false;
+
+  final player = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     loading = true;
     getidpass();
-
-    handleScrolling();
   }
 
   void getidpass() async {
@@ -44,28 +50,16 @@ class HomePageState extends State<HomePage> {
     getTaskListFromDB();
   }
 
-  void handleScrolling() {
-    scrollController.addListener(
-      () async {
-        if (scrollController.position.maxScrollExtent ==
-            scrollController.position.pixels) {
-          getTaskListFromDB();
-        }
-      },
-    );
-  }
-
   Future<void> getTaskListFromDB() async {
-    print('getting tasks.... for $id');
-
+    print('hit');
+    setState(() {
+      loading = true;
+    });
     final database = FirebaseDatabase.instance;
     final tasksRef = database.ref('users/$id/tasks');
     final snapshot = await tasksRef.get();
 
     if (snapshot.exists) {
-      print('Snapshot value: ${snapshot.value}');
-
-      // Ensure snapshot.value is cast to a Map
       final tasksMap = Map<String, dynamic>.from(snapshot.value as Map);
 
       tasksMap.forEach((taskId, taskDetail) {
@@ -85,7 +79,7 @@ class HomePageState extends State<HomePage> {
     SharedPreferences pref = await SharedPreferences.getInstance();
     pref.clear();
     Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (contex) => LoginPage()));
+        context, MaterialPageRoute(builder: (contex) => const LoginPage()));
   }
 
   Future<void> saveTask(BuildContext context, String userId) async {
@@ -106,11 +100,21 @@ class HomePageState extends State<HomePage> {
         fontSize: 14.0,
       );
       setState(() {
+        this.tasksList.clear();
+        getTaskListFromDB();
         taskController.clear();
       });
 
       Navigator.of(context).pop();
     }).catchError((e) {
+      Fluttertoast.showToast(
+        msg: "Error adding task",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.red,
+        fontSize: 14.0,
+      );
       print(e);
     });
   }
@@ -122,10 +126,10 @@ class HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Update Task'),
+          title: const Text('Update Task'),
           content: TextField(
             controller: taskController,
-            style: TextStyle(fontSize: 20),
+            style: const TextStyle(fontSize: 20),
             maxLines: 3,
             autofocus: true,
           ),
@@ -137,11 +141,11 @@ class HomePageState extends State<HomePage> {
                 });
                 Navigator.of(context).pop();
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
-                if (taskController.text.isEmpty)
+                if (taskController.text.isEmpty) {
                   Fluttertoast.showToast(
                     msg: "Task can't be empty",
                     toastLength: Toast.LENGTH_SHORT,
@@ -150,7 +154,7 @@ class HomePageState extends State<HomePage> {
                     textColor: Colors.white,
                     fontSize: 14.0,
                   );
-                else {
+                } else {
                   setState(() {
                     updatingTask = true;
                   });
@@ -158,7 +162,7 @@ class HomePageState extends State<HomePage> {
                       FirebaseDatabase.instance.ref('users/$id/tasks');
 
                   await taskRef.update({
-                    "$taskId": "${taskController.text}",
+                    taskId: taskController.text,
                   }).then((_) {
                     Fluttertoast.showToast(
                       msg: "Updated",
@@ -191,7 +195,7 @@ class HomePageState extends State<HomePage> {
                   });
                 }
               },
-              child: Text('Update'),
+              child: const Text('Update'),
             ),
           ],
         );
@@ -231,15 +235,56 @@ class HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> markItCompleted(String taskId, int index) async {
+    DatabaseReference taskRef =
+        FirebaseDatabase.instance.ref('users/$id/tasks/$taskId');
+
+    await taskRef.remove().then((_) {
+      setState(() {
+        tasksList[index].isCompleted = true;
+      });
+      swooshSound();
+      Future.delayed(Duration(milliseconds: 900), () {
+        setState(() {
+          tasksList.removeAt(index);
+        });
+
+        Fluttertoast.showToast(
+          msg: "Task Completed",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.black,
+          textColor: Colors.white,
+          fontSize: 14.0,
+        );
+      });
+    }).catchError((error) {
+      Fluttertoast.showToast(
+        msg: "Error deleting task",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.black,
+        textColor: Colors.red,
+        fontSize: 14.0,
+      );
+    });
+  }
+
+  Future<void> deleteMultipleTasks() async {
+    for (int index in deleteList) {
+      deleteThisTask(tasksList[index].taskId, index);
+    }
+  }
+
   void addNewTAskDialouge(BuildContext context, String userId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('New Task'),
+          title: const Text('New Task'),
           content: TextField(
             controller: taskController,
-            style: TextStyle(fontSize: 20),
+            style: const TextStyle(fontSize: 20),
             maxLines: 3,
             autofocus: true,
           ),
@@ -251,11 +296,11 @@ class HomePageState extends State<HomePage> {
                 });
                 Navigator.of(context).pop();
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                if (taskController.text.isEmpty)
+                if (taskController.text.isEmpty) {
                   Fluttertoast.showToast(
                     msg: "Task can't be empty",
                     toastLength: Toast.LENGTH_SHORT,
@@ -264,10 +309,11 @@ class HomePageState extends State<HomePage> {
                     textColor: Colors.white,
                     fontSize: 14.0,
                   );
-                else
+                } else {
                   saveTask(context, userId);
+                }
               },
-              child: Text('Save'),
+              child: const Text('Save'),
             ),
           ],
         );
@@ -275,34 +321,79 @@ class HomePageState extends State<HomePage> {
     );
   }
 
+  Widget noTaskYet() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Add new task...',
+              style: GoogleFonts.ubuntu(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const Gap(100),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> swooshSound() async {
+    String audioFilePath = "swoosh.mp3";
+    await player.play(AssetSource(audioFilePath));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        backgroundColor: Colors.grey[50],
         resizeToAvoidBottomInset: false,
         floatingActionButton:
             Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-          FloatingActionButton(
-            onPressed: () {
-              if (!loading)
-                setState(() {
-                  tasksList.clear();
-                  getTaskListFromDB();
-                });
-            },
-            backgroundColor: Colors.black,
-            child: Icon(
-              Icons.refresh,
-              size: 40,
-              color: Colors.white,
-            ),
-          ),
-          Gap(10),
+          deleteList.isNotEmpty
+              ? FloatingActionButton(
+                  onPressed: () async {
+                    if (!loading) {
+                      await deleteMultipleTasks();
+                      deleteList.clear();
+                    }
+                  },
+                  backgroundColor: Colors.black,
+                  child: const Icon(
+                    Icons.delete,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                )
+              : FloatingActionButton(
+                  onPressed: () {
+                    if (!loading) {
+                      setState(() {
+                        tasksList.clear();
+                        getTaskListFromDB();
+                      });
+                    }
+                  },
+                  backgroundColor: Colors.black,
+                  child: const Icon(
+                    Icons.refresh,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                ),
+          const Gap(10),
           FloatingActionButton(
             onPressed: () {
               addNewTAskDialouge(context, id);
             },
             backgroundColor: Colors.black,
-            child: Icon(
+            child: const Icon(
               Icons.add,
               size: 40,
               color: Colors.white,
@@ -314,14 +405,22 @@ class HomePageState extends State<HomePage> {
           automaticallyImplyLeading: false,
           title: Row(
             children: [
-              Gap(8),
+              const Gap(8),
               Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.black,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey,
+                      spreadRadius: 0.5,
+                      blurRadius: 2,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: IconButton(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.person,
                       size: 20,
                     ),
@@ -331,18 +430,19 @@ class HomePageState extends State<HomePage> {
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: Text('Logout'),
-                            content: Text('Are you sure you want to logout?'),
+                            title: const Text('Logout'),
+                            content:
+                                const Text('Are you sure you want to logout?'),
                             actions: <Widget>[
                               TextButton(
-                                child: Text('Logout'),
+                                child: const Text('Logout'),
                                 onPressed: () {
                                   clearLocalStorage();
                                   Navigator.of(context).pop();
                                 },
                               ),
                               TextButton(
-                                child: Text('Cancel'),
+                                child: const Text('Cancel'),
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                 },
@@ -357,94 +457,148 @@ class HomePageState extends State<HomePage> {
           ),
         ),
         body: Column(mainAxisSize: MainAxisSize.min, children: [
-          Gap(8),
+          const Gap(8),
           loading
-              ? CircularProgressIndicator()
-              : SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  controller: scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    children: [
-                      ListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        padding:
-                            const EdgeInsets.only(left: 10, right: 10, top: 10),
-                        itemCount: tasksList.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          return Card(
-                            color: Colors.white,
-                            elevation: 1,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5.0),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 10, right: 10, top: 10, bottom: 10),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      softWrap: true,
-                                      tasksList[index].taskDetail,
-                                      style: TextStyle(
-                                          fontSize: 16, color: Colors.black),
+              ? const Center(child: CircularProgressIndicator())
+              : tasksList.isEmpty
+                  ? noTaskYet()
+                  : Flexible(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        controller: scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        child: RefreshIndicator(
+                          onRefresh: getTaskListFromDB,
+                          child: ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.only(
+                                left: 10, right: 10, top: 10),
+                            itemCount: tasksList.length + 1,
+                            itemBuilder: (BuildContext context, int index) {
+                              if (index < tasksList.length) {
+                                var item = tasksList[index];
+                                return InkWell(
+                                  onTap: () {
+                                    if (activateSingleTapToSelect) {
+                                      if (item.isSelected)
+                                        setState(() {
+                                          item.isSelected = false;
+                                          deleteList.remove(index);
+                                          if (deleteList.isEmpty)
+                                            activateSingleTapToSelect = false;
+                                        });
+                                      else
+                                        setState(() {
+                                          item.isSelected = true;
+                                          deleteList.add(index);
+                                        });
+                                    }
+                                  },
+                                  onLongPress: () {
+                                    if (!activateSingleTapToSelect) {
+                                      if (item.isSelected)
+                                        setState(() {
+                                          item.isSelected = false;
+                                          deleteList.remove(index);
+                                          if (deleteList.isEmpty)
+                                            activateSingleTapToSelect = false;
+                                        });
+                                      else
+                                        setState(() {
+                                          item.isSelected = true;
+                                          deleteList.add(index);
+                                          activateSingleTapToSelect = true;
+                                        });
+                                    }
+                                  },
+                                  child: Card(
+                                    color: item.isSelected
+                                        ? Colors.black
+                                        : Colors.white,
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(5.0),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                          top: 2, bottom: 2),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          IconButton(
+                                            onPressed: () async {
+                                              await markItCompleted(
+                                                  item.taskId, index);
+                                            },
+                                            icon: Icon(
+                                              Icons.check_box_outlined,
+                                              color: !item.isCompleted
+                                                  ? Colors.grey[300]
+                                                  : Colors.black,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              softWrap: true,
+                                              item.taskDetail,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                                decoration: item.isCompleted
+                                                    ? TextDecoration.lineThrough
+                                                    : TextDecoration.none,
+                                                color: item.isSelected
+                                                    ? Colors.white
+                                                    : Colors.black,
+                                              ),
+                                            ),
+                                          ),
+                                          const Gap(5),
+                                          IconButton(
+                                            onPressed: () async {
+                                              setState(() {
+                                                taskController.text =
+                                                    tasksList[index].taskDetail;
+                                              });
+                                              String? finalTask =
+                                                  await updateTask(
+                                                      tasksList[index].taskId,
+                                                      tasksList[index]
+                                                          .taskDetail);
+
+                                              if (finalTask != null) {
+                                                setState(() {
+                                                  tasksList[index] = Task(
+                                                    taskId:
+                                                        tasksList[index].taskId,
+                                                    taskDetail: finalTask,
+                                                  );
+                                                });
+                                              }
+                                            },
+                                            icon: Icon(
+                                              Icons.mode_edit_outlined,
+                                              color: item.isSelected
+                                                  ? Colors.white
+                                                  : Colors.grey,
+                                            ),
+                                          )
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                  Gap(5),
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () async {
-                                          setState(() {
-                                            taskController.text =
-                                                tasksList[index].taskDetail;
-                                          });
-                                          String? finalTask = await updateTask(
-                                              tasksList[index].taskId,
-                                              tasksList[index].taskDetail);
-                                          print('final task : $finalTask');
-
-                                          if (finalTask != null)
-                                            setState(() {
-                                              tasksList[index] = Task(
-                                                taskId: tasksList[index].taskId,
-                                                taskDetail: finalTask,
-                                              );
-                                            });
-                                        },
-                                        icon: Icon(
-                                          Icons.mode_edit_outlined,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                      Gap(4),
-                                      IconButton(
-                                        onPressed: () {
-                                          deleteThisTask(
-                                              tasksList[index].taskId, index);
-                                        },
-                                        icon: Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                                );
+                              } else {
+                                return const Gap(40);
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                      const Gap(100),
-                    ],
-                  ),
-                ),
+                    ),
         ]));
   }
 }
